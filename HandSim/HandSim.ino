@@ -2,8 +2,11 @@
 #include "M5Atom.h"
 #include <esp_now.h>
 #include <WiFi.h>
+#include <ACROBOTIC_SSD1306.h>
 
 #define MAX_TOLL 10
+#define TRIG_PIN 19
+#define ECHO_PIN 22
 
 enum _hand_dir_{
   DIR_FRONT = 0,
@@ -50,6 +53,14 @@ void setup(){
     Serial.println("Failed to add peer");
     return;
   }
+  oled.init();                      // Initialze SSD1306 OLED display
+  oled.setFont(font5x7);            // Set font type (default 8x8)
+  oled.clearDisplay();              // Clear screen
+  oled.setTextXY(0,0);              // Set cursor position, start of line 0
+  oled.putString("Madan");
+  pinMode(TRIG_PIN, OUTPUT);
+  // configure the echo pin to input mode
+  pinMode(ECHO_PIN, INPUT);
 }
 
 void PrintPattren(uint8_t p_dir){
@@ -95,9 +106,22 @@ void SendSigToPod(uint8_t p_dir){
     Serial.println("No Change in data to send");
   }
 }
+float duration_us, distance_cm;
 
 void loop(){
     delay(200);
-    M5.IMU.getAttitude(&pitch, &roll);
-    DetectMovement(pitch,roll);
+   M5.IMU.getAttitude(&pitch, &roll);
+   DetectMovement(pitch,roll);
+    // generate 10-microsecond pulse to TRIG pin
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN, LOW);
+    // measure duration of pulse from ECHO pin
+    duration_us = pulseIn(ECHO_PIN, HIGH);
+    // calculate the distance
+    distance_cm = 0.017 * duration_us;
+    Serial.print("distance: ");
+    Serial.print(distance_cm);
+    Serial.println(" cm");
+    delay(500);
 }
