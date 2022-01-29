@@ -2,11 +2,17 @@
 #include "M5Atom.h"
 #include <esp_now.h>
 #include <WiFi.h>
-#include <ACROBOTIC_SSD1306.h>
+#include "Adafruit_PWMServoDriver.h"
 
-#define MAX_TOLL 10
-#define TRIG_PIN 19
-#define ECHO_PIN 22
+#define MAX_TOLL    10
+#define TRIG_PIN    19
+#define ECHO_PIN    22
+#define SERVOMIN    150 // This is the 'minimum' pulse length count (out of 4096)
+#define SERVOMAX    600 // This is the 'maximum' pulse length count (out of 4096)
+#define USMIN       600 // This is the rounded 'minimum' microsecond length based on the minimum pulse of 150
+#define USMAX       2400 // This is the rounded 'maximum' microsecond length based on the maximum pulse of 600
+#define SERVO_FREQ  50 // Analog servos run at ~50 Hz updates
+#define GET_BIT_STATUS(_value_,_pos_)   ((_value_ & (1<<_pos_)) >> _pos_)
 
 enum _hand_dir_{
   DIR_FRONT = 0,
@@ -15,38 +21,26 @@ enum _hand_dir_{
   DIR_RIGHT
 };
 
-typedef struct _payload_ Payload;
-#ifndef STRUCT_PACK
-#define STRUCT_PACK
-#pragma pack(1)
-struct _payload_{
-  uint8_t s_dir;
-};
-#undef STRUCT_PACK
-#endif //STRUCT_PACK
-
-double pitch ;
-double roll;
 uint8_t broadcastAddress[] = {0x4C, 0x75, 0x25, 0xCC, 0x85, 0x08};
+const uint32_t g_disp_dir[]={0xFFFFFFFF,0x004255c4,0x00475484,0x00417c44,0x00447D04,0x01151151};
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+float duration_us, distance_cm;
+int g_move[][6]={{135,45,135,135,45,135},{45,135,45,45,135,45}}; // movement angle for first joint from the body
+int leg_1_pos[3]={90,90,90};
+int leg_1_move[2][3]={{135,10,90},{45,60,90}};
 
 
 void SendSigToPod(uint8_t p_dir);
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status);
 void PrintPattren(uint8_t p_dir);
-void DetectMovement(double p_pitch, double p_roll);
-
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
   Serial.print("\r\nLast Packet Send Status:\t");
   Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
 
-
-void setup(){
-  M5.begin(true, true, true);
-  M5.IMU.Init();
-  WiFi.mode(WIFI_STA);
-  if (esp_now_init() != ESP_OK) {
+void ESPNow_Init(){
+ if (esp_now_init() != ESP_OK) {
     Serial.println("Error initializing ESP-NOW");
     return;
   }
@@ -59,66 +53,48 @@ void setup(){
     Serial.println("Failed to add peer");
     return;
   }
-  // oled.init();                      // Initialze SSD1306 OLED display
-  // oled.setFont(font5x7);            // Set font type (default 8x8)
-  // oled.clearDisplay();              // Clear screen
-  // oled.setTextXY(0,0);              // Set cursor position, start of line 0
-  // oled.putString("Madan");
+}
+
+void UltraSonicInit(){
   pinMode(TRIG_PIN, OUTPUT);
-  // configure the echo pin to input mode
   pinMode(ECHO_PIN, INPUT);
 }
 
+void ServoInit(){
+  pwm.begin();
+  pwm.setOscillatorFrequency(27000000);
+  pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
+  delay(10);
+  int init_pos_val = 90;
+  init_pos_val = map(init_pos_val,0,180,SERVOMIN,SERVOMAX);
+  Serial.println(init_pos_val); //375
+  int val = 0;
+  for (int i = 0 ; i < 3; i ++) {
+  val = map(leg_1_pos[i],0,180,SERVOMIN,SERVOMAX);
+    pwm.setPWM(i, 0, val);
+  }
+  delay(2000);
+}
+void setup(){
+  M5.begin(true, true, true);
+  // M5.IMU.Init();
+  // WiFi.mode(WIFI_STA);
+  // ESPNow_Init();
+  // UltraSonicInit();
+  ServoInit();
+}
+
 void PrintPattren(uint8_t p_dir){
-  const uint8_t g_pattren[5][25]={
-                        {2,6,7,8,12,17,22},
-                        {2,7,12,16,17,18,22},
-                        {6,10,11,12,13,14,16},
-                        {8,10,11,12,13,14,18}
-  };
-  
-  M5.dis.clear();
-  for(int i = 0 ; i < 7; i++){
-    M5.dis.drawpix(g_pattren[p_dir][i],0xf00000);
-  }
-}
-void DetectMovement(double p_pitch, double p_roll){
-  if(p_roll > (1*MAX_TOLL)){
-    SendSigToPod(DIR_FRONT);
-  }else if(p_roll <-(1*MAX_TOLL)){
-    SendSigToPod(DIR_BACK);
-  }else if( p_pitch >(1*MAX_TOLL)){
-    SendSigToPod(DIR_LEFT);
-  }else if( p_pitch <-(1*MAX_TOLL)){
-    SendSigToPod(DIR_RIGHT);
-  }else{
-    Serial.println("Halt");
+  for(int i = 0 ; i < 25; i++){
+    if(GET_BIT_STATUS(g_disp_dir[p_dir],i)){
+      M5.dis.drawpix(i,0xf00000);
+    }else{
+      M5.dis.drawpix(i,0x00000);
+    }
   }
 }
 
-void SendSigToPod(uint8_t p_dir){
-  static uint8_t l_last_sent_data = 0;
-  if(p_dir != l_last_sent_data){
-    esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *) &p_dir, sizeof(p_dir));
-    if (result == ESP_OK) {
-      Serial.println("Sent with success");
-      PrintPattren(p_dir);
-      l_last_sent_data = p_dir;
-    }
-    else {
-      Serial.println("Error sending the data");
-    }
-  }else{
-    Serial.println("No Change in data to send");
-  }
-}
-float duration_us, distance_cm;
-
-void loop(){
-    delay(200);
-   M5.IMU.getAttitude(&pitch, &roll);
-   DetectMovement(pitch,roll);
-    // generate 10-microsecond pulse to TRIG pin
+void UltraSoincReading(){
     digitalWrite(TRIG_PIN, HIGH);
     delayMicroseconds(10);
     digitalWrite(TRIG_PIN, LOW);
@@ -129,5 +105,24 @@ void loop(){
     Serial.print("distance: ");
     Serial.print(distance_cm);
     Serial.println(" cm");
-    delay(500);
+  
+}
+
+void MovFW(){
+  int val = 0;
+  for (int i = 0 ; i < 3; i++) {
+    val = map(leg_1_move[0][i],0,180,SERVOMIN,SERVOMAX);
+    pwm.setPWM(i,0, val);
+    delay(100);
+  }
+  delay(500);
+  for (int i = 0 ; i < 3; i++) {
+    val = map(leg_1_move[1][i],0,180,SERVOMIN,SERVOMAX);
+    pwm.setPWM(i,0, val);
+    delay(100);
+  }
+  delay(500); 
+}
+void loop(){
+    MovFW();
 }
