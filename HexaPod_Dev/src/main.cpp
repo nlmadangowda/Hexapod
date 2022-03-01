@@ -31,6 +31,12 @@
 // Analog servos run at ~50 Hz updates
 #define SERVO_FREQ  50 
 
+
+#define J0_INIT 90
+#define J1_INIT 65
+#define J2_INIT 115
+
+
 #define GET_BIT_STATUS(_value_,_pos_)   ((_value_ & (1<<_pos_)) >> _pos_)
 
 enum _hand_dir_{
@@ -43,6 +49,7 @@ enum _hand_dir_{
 typedef struct _joints_{
   uint8_t pin;
   uint8_t pos;
+  int8_t error;
 }Joint;
 
 typedef struct _legs_{
@@ -54,7 +61,8 @@ Leg legs[6];
 
 uint8_t broadcastAddress[] = {0x4C, 0x75, 0x25, 0xCC, 0x85, 0x08};
 const uint32_t g_disp_dir[]={0xFFFFFFFF,0x004255c4,0x00475484,0x00417c44,0x00447D04,0x01151151};
-Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver();
+Adafruit_PWMServoDriver pwm = Adafruit_PWMServoDriver(0x40);
+Adafruit_PWMServoDriver pwm1 = Adafruit_PWMServoDriver(0x41);
 float duration_us, distance_cm;
 
 
@@ -106,38 +114,57 @@ void UltraSonicInit(){
   pinMode(ECHO_PIN, INPUT);
 }
 
-void InitServoLegs(uint8_t p_number,uint8_t p_joint, uint8_t p_pin, uint8_t p_pos, uint8_t p_driver){
+void InitServoLegs(uint8_t p_number,uint8_t p_joint, uint8_t p_pin, uint8_t p_pos, uint8_t p_driver, int8_t p_error){
   p_number-=1;
   legs[p_number].driver = p_driver;
   legs[p_number].joints[p_joint].pin = p_pin;
   legs[p_number].joints[p_joint].pos = p_pos;
+  legs[p_number].joints[p_joint].error = p_error;
 }
 
 void MvLeg(Leg p_s_leg){
   int val = 0;
   for (int i = 0 ; i < 3; i ++) {
-  val = map(p_s_leg.joints[i].pos,0,180,SERVOMIN,SERVOMAX);
-    pwm.setPWM(p_s_leg.joints[i].pin, 0, val);
+  val = map((p_s_leg.joints[i].pos+(p_s_leg.joints[i].error)),0,180,SERVOMIN,SERVOMAX);
+    if(p_s_leg.driver==0){
+      pwm.setPWM(p_s_leg.joints[i].pin, 0, val);
+    }else if(p_s_leg.driver==1){
+      pwm1.setPWM(p_s_leg.joints[i].pin, 0, val);
+    }else{
+      /*NOP*/
+    }
     delay(10);
   } 
 }
 
+
 void InitLegs(){
-  InitServoLegs(1,0,0,90,0);
-  InitServoLegs(1,1,1,90,0);
-  InitServoLegs(1,2,2,90,0);
+  InitServoLegs(1,0,0,J0_INIT,0,0);
+  InitServoLegs(1,1,1,J1_INIT,0,0);
+  InitServoLegs(1,2,2,J2_INIT,0,0);
 
-  InitServoLegs(2,0,4,90,0);
-  InitServoLegs(2,1,5,90,0);
-  InitServoLegs(2,2,6,90,0);
+  InitServoLegs(2,0,4,J0_INIT,0,0);
+  InitServoLegs(2,1,5,J1_INIT,0,0);
+  InitServoLegs(2,2,6,J2_INIT,0,0);
 
-  InitServoLegs(3,0,8,90,0);
-  InitServoLegs(3,1,9,90,0);
-  InitServoLegs(3,2,10,90,0);
+  InitServoLegs(3,0,8,J0_INIT,0,0);
+  InitServoLegs(3,1,9,J1_INIT,0,0);
+  InitServoLegs(3,2,10,J2_INIT,0,0);
 
-  for (int i = 0 ; i < 3; i ++) {
+  InitServoLegs(4,0,0,J0_INIT,1,0);
+  InitServoLegs(4,1,1,J1_INIT,1,0);
+  InitServoLegs(4,2,2,J2_INIT,1,5);
+
+  InitServoLegs(5,0,4,J0_INIT,1,0);
+  InitServoLegs(5,1,5,J1_INIT,1,0);
+  InitServoLegs(5,2,6,J2_INIT,1,0);
+
+  InitServoLegs(6,0,8,J0_INIT,1,0);
+  InitServoLegs(6,1,9,J1_INIT,1,5);
+  InitServoLegs(6,2,10,J2_INIT,1,0);
+
+  for (int i = 0 ; i < 6; i ++) {
     MvLeg(legs[i]);
-    delay(50);
   }
 }
 
@@ -145,6 +172,11 @@ void ServoInit(){
   pwm.begin();
   pwm.setOscillatorFrequency(27000000);
   pwm.setPWMFreq(SERVO_FREQ);  // Analog servos run at ~50 Hz updates
+  
+  pwm1.begin();
+  pwm1.setOscillatorFrequency(27000000);
+  pwm1.setPWMFreq(SERVO_FREQ);
+  
   InitLegs();  
   delay(2000);
 }
@@ -181,10 +213,6 @@ void UltraSoincReading(){
   
 }
 
-void set_pos(int p_motor ,int p_pos){
-  int val = map(p_pos,0,180,SERVOMIN,SERVOMAX);
-  pwm.setPWM(p_motor,0, val);
-}
 
 void SetLegPos(uint8_t p_number, uint8_t p_j0,uint8_t p_j1,uint8_t p_j2){
   p_number-=1;
@@ -195,22 +223,34 @@ void SetLegPos(uint8_t p_number, uint8_t p_j0,uint8_t p_j1,uint8_t p_j2){
 
 void MovFW(){
 
-  SetLegPos(1,135,10,90);
-  SetLegPos(2,45,10,90);
-  SetLegPos(3,135,10,90);
-
-  for (int i = 0 ; i < 3; i ++) {
+  SetLegPos(1,120,50,115);
+  SetLegPos(3,120,50,115);
+  SetLegPos(5,60,50,115);
+  for (int i = 0 ; i < 6; i ++) {
     MvLeg(legs[i]);
-    delay(10);
   }
   delay(500); 
-  SetLegPos(1,45,60,90);
-  SetLegPos(2,135,60,90);
-  SetLegPos(3,45,60,90);
-  
-  for (int i = 0 ; i < 3; i ++) {
+  SetLegPos(2,60,65,115);
+  SetLegPos(4,120,65,115);
+  SetLegPos(6,120,65,115);
+  for (int i = 0 ; i < 6; i ++) {
     MvLeg(legs[i]);
-    delay(10);
+  }
+  delay(500); 
+  SetLegPos(1,60,65,115);
+  SetLegPos(3,60,65,115);
+  SetLegPos(5,120,65,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+  delay(500); 
+  SetLegPos(2,120,50,115);
+  SetLegPos(4,60,50,115);
+  SetLegPos(6,60,50,115);
+  
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+    // delay(10);
   }
   delay(500); 
 }
