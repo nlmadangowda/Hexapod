@@ -229,30 +229,41 @@ void MovFW(){
   for (int i = 0 ; i < 6; i ++) {
     MvLeg(legs[i]);
   }
-  delay(500); 
+  SetLegPos(1,120,65,115);
+  SetLegPos(3,120,65,115);
+  SetLegPos(5,60,65,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+
   SetLegPos(2,60,65,115);
   SetLegPos(4,120,65,115);
   SetLegPos(6,120,65,115);
   for (int i = 0 ; i < 6; i ++) {
     MvLeg(legs[i]);
   }
-  delay(500); 
+
   SetLegPos(1,60,65,115);
   SetLegPos(3,60,65,115);
   SetLegPos(5,120,65,115);
   for (int i = 0 ; i < 6; i ++) {
     MvLeg(legs[i]);
   }
-  delay(500); 
   SetLegPos(2,120,50,115);
   SetLegPos(4,60,50,115);
   SetLegPos(6,60,50,115);
   
   for (int i = 0 ; i < 6; i ++) {
     MvLeg(legs[i]);
-    // delay(10);
   }
-  delay(500); 
+  
+  SetLegPos(2,120,65,115);
+  SetLegPos(4,60,65,115);
+  SetLegPos(6,60,65,115);
+  
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
 }
 
 void loop(){
