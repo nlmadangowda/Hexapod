@@ -13,6 +13,7 @@
 #include <WiFi.h>
 #include "Adafruit_PWMServoDriver.h"
 
+
 #define MAX_TOLL    10
 #define TRIG_PIN    19
 #define ECHO_PIN    22
@@ -109,11 +110,6 @@ void ESPNow_Init(){
   }
 }
 
-void UltraSonicInit(){
-  pinMode(TRIG_PIN, OUTPUT);
-  pinMode(ECHO_PIN, INPUT);
-}
-
 void InitServoLegs(uint8_t p_number,uint8_t p_joint, uint8_t p_pin, uint8_t p_pos, uint8_t p_driver, int8_t p_error){
   p_number-=1;
   legs[p_number].driver = p_driver;
@@ -180,38 +176,33 @@ void ServoInit(){
   InitLegs();  
   delay(2000);
 }
+
+void OnDataReceive(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
+  Serial.print("\r\n Last Packet Send Status:\t");
+}
+
 void setup(){
   M5.begin(true, true, true);
-  // M5.IMU.Init();
   // WiFi.mode(WIFI_STA);
-  // ESPNow_Init();
-  // UltraSonicInit();
+  // if (esp_now_init() != ESP_OK) {
+  //   Serial.println("Error initializing ESP-NOW");
+  //   return;
+  // }
+  // esp_now_register_recv_cb(OnDataReceive);
+  // esp_now_peer_info_t peerInfo;
+  // memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+  // peerInfo.channel = 0;  
+  // peerInfo.encrypt = false;
+  // if (esp_now_add_peer(&peerInfo) != ESP_OK){
+  //   Serial.println("Failed to add peer");
+  //   return;
+  // }
+  //   Serial.print("AP MAC: "); Serial.println(WiFi.softAPmacAddress());
+
   ServoInit();
 }
 
-void PrintPattren(uint8_t p_dir){
-  for(int i = 0 ; i < 25; i++){
-    if(GET_BIT_STATUS(g_disp_dir[p_dir],i)){
-      M5.dis.drawpix(i,0xf00000);
-    }else{
-      M5.dis.drawpix(i,0x00000);
-    }
-  }
-}
 
-void UltraSoincReading(){
-    digitalWrite(TRIG_PIN, HIGH);
-    delayMicroseconds(10);
-    digitalWrite(TRIG_PIN, LOW);
-    // measure duration of pulse from ECHO pin
-    duration_us = pulseIn(ECHO_PIN, HIGH);
-    // calculate the distance
-    distance_cm = 0.017 * duration_us;
-    Serial.print("distance: ");
-    Serial.print(distance_cm);
-    Serial.println(" cm");
-  
-}
 
 
 void SetLegPos(uint8_t p_number, uint8_t p_j0,uint8_t p_j1,uint8_t p_j2){
@@ -264,8 +255,174 @@ void MovFW(){
   for (int i = 0 ; i < 6; i ++) {
     MvLeg(legs[i]);
   }
+  // delay(100);
+}
+
+
+void MovBW(){
+
+  SetLegPos(1,60,50,115);
+  SetLegPos(3,60,50,115);
+  SetLegPos(5,120,50,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+  SetLegPos(1,60,65,115);
+  SetLegPos(3,60,65,115);
+  SetLegPos(5,120,65,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+
+  SetLegPos(2,120,65,115);
+  SetLegPos(4,60,65,115);
+  SetLegPos(6,60,65,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+
+  SetLegPos(1,120,65,115);
+  SetLegPos(3,120,65,115);
+  SetLegPos(5,60,65,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+  SetLegPos(2,60,50,115);
+  SetLegPos(4,120,50,115);
+  SetLegPos(6,120,50,115);
+  
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+  
+  SetLegPos(2,60,65,115);
+  SetLegPos(4,120,65,115);
+  SetLegPos(6,120,65,115);
+  
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+}
+
+void MovLH(){
+  
+  SetLegPos(1,60,50,115);
+  SetLegPos(3,60,50,115);
+  SetLegPos(5,60,50,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+  SetLegPos(1,60,65,115);
+  SetLegPos(3,60,65,115);
+  SetLegPos(5,60,65,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+
+  SetLegPos(2,120,65,115);
+  SetLegPos(4,120,65,115);
+  SetLegPos(6,120,65,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+
+  SetLegPos(1,120,65,115);
+  SetLegPos(3,120,65,115);
+  SetLegPos(5,120,65,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+
+  SetLegPos(2,60,50,115);
+  SetLegPos(4,60,50,115);
+  SetLegPos(6,60,50,115);
+  
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+  
+  
+  SetLegPos(2,60,65,115);
+  SetLegPos(4,60,65,115);
+  SetLegPos(6,60,65,115);
+  
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+}
+
+
+void MovRH(){
+  
+  SetLegPos(1,120,50,115);
+  SetLegPos(3,120,50,115);
+  SetLegPos(5,120,50,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+  SetLegPos(1,120,65,115);
+  SetLegPos(3,120,65,115);
+  SetLegPos(5,120,65,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+
+  SetLegPos(2,60,65,115);
+  SetLegPos(4,60,65,115);
+  SetLegPos(6,60,65,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+
+  SetLegPos(1,60,65,115);
+  SetLegPos(3,60,65,115);
+  SetLegPos(5,60,65,115);
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+
+  SetLegPos(2,120,50,115);
+  SetLegPos(4,120,50,115);
+  SetLegPos(6,120,50,115);
+  
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
+  
+  
+  SetLegPos(2,120,65,115);
+  SetLegPos(4,120,65,115);
+  SetLegPos(6,120,65,115);
+  
+  for (int i = 0 ; i < 6; i ++) {
+    MvLeg(legs[i]);
+  }
 }
 
 void loop(){
+  int dir = 0;
+  switch (dir)
+  {
+  case DIR_FRONT:
     MovFW();
+    break;
+
+  case DIR_BACK:
+    MovBW();
+    break;
+    
+  case DIR_RIGHT:
+    /* code */
+    MovRH();
+    break;
+    
+  case DIR_LEFT:
+    /* code */
+    MovLH();
+    break;
+  default:
+    InitLegs(); 
+    break;
+  }
+  
 }
